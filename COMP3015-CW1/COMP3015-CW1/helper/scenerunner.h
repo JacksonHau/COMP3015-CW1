@@ -3,8 +3,8 @@
 #include <GLFW/glfw3.h>
 #include "glutils.h"
 
-#define WIN_WIDTH 800
-#define WIN_HEIGHT 600
+#define WIN_WIDTH 1980
+#define WIN_HEIGHT 1080
 
 #include <map>
 #include <string>
@@ -33,7 +33,7 @@ public:
 #endif
         glfwWindowHint(GLFW_OPENGL_FORWARD_COMPAT, GL_TRUE);
         glfwWindowHint(GLFW_OPENGL_PROFILE, GLFW_OPENGL_CORE_PROFILE);
-        glfwWindowHint(GLFW_RESIZABLE, GL_FALSE);
+        glfwWindowHint(GLFW_RESIZABLE, GL_TRUE);
         if(debug) 
 			glfwWindowHint(GLFW_OPENGL_DEBUG_CONTEXT, GL_TRUE);
         if(samples > 0) {
@@ -48,6 +48,9 @@ public:
             exit( EXIT_FAILURE );
         }
         glfwMakeContextCurrent(window);
+
+        // Maximise but keep windowed
+        glfwMaximizeWindow(window);
 
         // Get framebuffer size
         glfwGetFramebufferSize(window, &fbw, &fbh);
@@ -71,6 +74,7 @@ public:
 
     int run(Scene & scene) {
         scene.setDimensions(fbw, fbh);
+        scene.setWindow(window);
         scene.initScene();
         scene.resize(fbw, fbh);
 

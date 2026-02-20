@@ -2,12 +2,17 @@
 
 #include <glm/glm.hpp>
 
+struct GLFWwindow;
+
 class Scene
 {
 protected:
 	glm::mat4 model, view, projection;
 
 public:
+    GLFWwindow* window = nullptr;
+    void setWindow(GLFWwindow* w) { window = w; }
+
     int width;
     int height;
 
