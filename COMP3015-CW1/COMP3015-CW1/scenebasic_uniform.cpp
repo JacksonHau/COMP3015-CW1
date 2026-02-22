@@ -22,7 +22,7 @@ static GLuint loadTexture2D(const char* path)
 {
     int w, h, n;
     stbi_set_flip_vertically_on_load(true);
-    unsigned char* data = stbi_load(path, &w, &h, &n, 4); // force RGBA
+    unsigned char* data = stbi_load(path, &w, &h, &n, 4);
     if (!data) {
         std::cerr << "Failed to load texture: " << path << std::endl;
         return 0;
@@ -37,7 +37,7 @@ static GLuint loadTexture2D(const char* path)
     glTextureParameteri(tex, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
     glTextureParameteri(tex, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
 
-    // Repeat so it tiles across your 0..10 UVs
+    // Repeat 
     glTextureParameteri(tex, GL_TEXTURE_WRAP_S, GL_REPEAT);
     glTextureParameteri(tex, GL_TEXTURE_WRAP_T, GL_REPEAT);
 
@@ -287,15 +287,37 @@ void SceneBasic_Uniform::update(float t)
 
     view = glm::lookAt(camPos, camPos + camFront, camUp);
 
-    // Toggle dark/bright with F
-    if (glfwGetKey(window, GLFW_KEY_F) == GLFW_PRESS) {
+    // Toggle dark/bright with L
+    if (glfwGetKey(window, GLFW_KEY_L) == GLFW_PRESS) {
         if (!togglePressed) {
             isDarkMode = !isDarkMode;
             togglePressed = true;
         }
     }
-    if (glfwGetKey(window, GLFW_KEY_F) == GLFW_RELEASE) {
+    if (glfwGetKey(window, GLFW_KEY_L) == GLFW_RELEASE) {
         togglePressed = false;
+    }
+
+    // Toggle TOON with T
+    if (glfwGetKey(window, GLFW_KEY_T) == GLFW_PRESS) {
+        if (!tPressed) {
+            toonMode = !toonMode;
+            tPressed = true;
+        }
+    }
+    if (glfwGetKey(window, GLFW_KEY_T) == GLFW_RELEASE) {
+        tPressed = false;
+    }
+
+    // Toggle FOG with F
+    if (glfwGetKey(window, GLFW_KEY_F) == GLFW_PRESS) {
+        if (!fPressed) {
+            fogMode = !fogMode;
+            fPressed = true;
+        }
+    }
+    if (glfwGetKey(window, GLFW_KEY_F) == GLFW_RELEASE) {
+        fPressed = false;
     }
 }
 
@@ -324,11 +346,33 @@ void SceneBasic_Uniform::render()
         prog.setUniform("uSpecStrength", 0.65f);
     }
 
+    prog.setUniform("uViewPos", camPos);
+    prog.setUniform("uLightPos", lightPos);
+    prog.setUniform("uLightColor", glm::vec3(1.2f, 1.0f, 0.85f));
+
     prog.setUniform("uShininess", 64.0f);
 
     // View/proj uniforms
     prog.setUniform("uView", view);
     prog.setUniform("uProj", projection);
+
+    // Toon + Fog toggles
+    prog.setUniform("uToon", toonMode ? 1 : 0);
+    prog.setUniform("uFog", fogMode ? 1 : 0);
+
+    if (toonMode) {
+        prog.setUniform("uSpecStrength", 0.0f);
+    }
+
+    // Fog settings
+    if (isDarkMode) {
+        prog.setUniform("uFogColor", glm::vec3(0.05f, 0.05f, 0.08f));
+    }
+    else {
+        prog.setUniform("uFogColor", glm::vec3(0.62f, 0.70f, 0.85f));
+    }
+    prog.setUniform("uFogNear", 6.0f);
+    prog.setUniform("uFogFar", 25.0f);
 
     // Ground uses texture
     prog.setUniform("uUseTexture", 1);
