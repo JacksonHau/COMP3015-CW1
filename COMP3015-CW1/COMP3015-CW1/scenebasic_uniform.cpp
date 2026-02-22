@@ -64,6 +64,7 @@ void SceneBasic_Uniform::initScene()
     buildGround();
 
     floorTex = loadTexture2D("assets/wood.png");
+    cubeTex = loadTexture2D("assets/brick.jpg");
 
     // initial projection
     projection = glm::perspective(glm::radians(60.0f), float(width) / float(height), 0.1f, 200.0f);
@@ -286,14 +287,14 @@ void SceneBasic_Uniform::update(float t)
 
     view = glm::lookAt(camPos, camPos + camFront, camUp);
 
-    // Toggle dark/bright with L
-    if (glfwGetKey(window, GLFW_KEY_L) == GLFW_PRESS) {
+    // Toggle dark/bright with F
+    if (glfwGetKey(window, GLFW_KEY_F) == GLFW_PRESS) {
         if (!togglePressed) {
             isDarkMode = !isDarkMode;
             togglePressed = true;
         }
     }
-    if (glfwGetKey(window, GLFW_KEY_L) == GLFW_RELEASE) {
+    if (glfwGetKey(window, GLFW_KEY_F) == GLFW_RELEASE) {
         togglePressed = false;
     }
 }
@@ -301,7 +302,7 @@ void SceneBasic_Uniform::update(float t)
 void SceneBasic_Uniform::render()
 {
     if (isDarkMode) {
-        glClearColor(0.03f, 0.03f, 0.05f, 1.0f); // dark navy
+        glClearColor(0.03f, 0.03f, 0.05f, 1.0f); // dark sky
     }
     else {
         glClearColor(0.62f, 0.70f, 0.85f, 1.0f); // bright sky
@@ -318,8 +319,8 @@ void SceneBasic_Uniform::render()
         prog.setUniform("uSpecStrength", 0.75f);
     }
     else {
-        prog.setUniform("uLightColor", glm::vec3(1.0f, 1.0f, 1.0f));
-        prog.setUniform("uAmbientStrength", 0.18f);
+        prog.setUniform("uLightColor", glm::vec3(2.5f, 2.5f, 2.5f));
+        prog.setUniform("uAmbientStrength", 0.30f);
         prog.setUniform("uSpecStrength", 0.65f);
     }
 
@@ -343,8 +344,10 @@ void SceneBasic_Uniform::render()
     glBindVertexArray(groundVao);
     glDrawArrays(GL_TRIANGLES, 0, 6);
 
-    // Cube uses solid colour
-    prog.setUniform("uUseTexture", 0);
+	// Cube texture
+    prog.setUniform("uUseTexture", 1);
+    prog.setUniform("uTex", 0);
+    glBindTextureUnit(0, cubeTex);
 
     // Draw cube 
     glm::mat4 cubeModel(1.0f);

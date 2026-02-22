@@ -15,6 +15,8 @@ private:
 
     GLuint floorTex = 0;
 
+    GLuint cubeTex = 0;
+
     float angle = 0.0f;
 
     // Camera
