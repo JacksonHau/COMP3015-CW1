@@ -17,8 +17,6 @@ private:
 
     GLuint cubeTex = 0;
 
-    GLuint toonRampTex = 0;
-
     float angle = 0.0f;
 
     // Camera
@@ -51,12 +49,7 @@ private:
     void buildCube();
     void buildGround();
 
-    // Orbiting light settings
-    float lightRadius = 6.0f;
-    float lightHeight = 4.0f;
-    float lightSpeed = 0.8f;
-    glm::vec3 lightCenter = glm::vec3(0.0f, 0.0f, 0.0f);
-    glm::vec3 lightPos = glm::vec3(0.0f);
+    glm::vec3 lightPos = glm::vec3(0.0f, -100.0f, 0.0f);
 
 public:
     SceneBasic_Uniform();

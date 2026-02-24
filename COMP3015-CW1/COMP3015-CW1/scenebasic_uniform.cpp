@@ -412,7 +412,7 @@ void SceneBasic_Uniform::render()
 
     // Draw cube 
     glm::mat4 cubeModel(1.0f);
-    cubeModel = glm::translate(cubeModel, glm::vec3(0.0f, 0.0f, 0.0f));
+    cubeModel = glm::translate(cubeModel, glm::vec3(3.0f, 0.0f, 0.0f));
     prog.setUniform("uModel", cubeModel);
     prog.setUniform("uBaseColor", glm::vec3(0.80f, 0.80f, 0.86f));
 
