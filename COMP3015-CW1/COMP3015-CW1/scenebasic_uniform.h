@@ -17,6 +17,8 @@ private:
 
     GLuint cubeTex = 0;
 
+    GLuint toonRampTex = 0;
+
     float angle = 0.0f;
 
     // Camera
@@ -39,7 +41,7 @@ private:
     bool isDarkMode = true;
     bool togglePressed = false;
 
-    bool toonMode = false;
+    bool spotlightMode = false;
     bool fogMode = false;
 
     bool tPressed = false;

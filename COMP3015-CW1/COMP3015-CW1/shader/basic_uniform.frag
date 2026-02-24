@@ -19,19 +19,17 @@ uniform vec3 uBaseColor;
 uniform int uUseTexture;
 uniform sampler2D uTex;
 
-// NEW toggles
-uniform int uToon;
+// Fog
 uniform int uFog;
-
-// Fog params
 uniform vec3  uFogColor;
 uniform float uFogNear;
 uniform float uFogFar;
 
-float toonify(float x, float steps)
-{
-    return floor(x * steps) / steps;
-}
+// Spotlight
+uniform int  uUseSpotlight;     // 0/1
+uniform vec3 uSpotDir;          // direction the spotlight points (world space)
+uniform float uInnerCutoff;     // cos(radians(innerAngle))
+uniform float uOuterCutoff;     // cos(radians(outerAngle))
 
 void main()
 {
@@ -45,24 +43,33 @@ void main()
     vec3 V = normalize(uViewPos - vWorldPos);
     vec3 H = normalize(L + V);
 
+    // Spotlight intensity
+    float spot = 1.0;
+    if (uUseSpotlight == 1) {
+        vec3 spotDirN = normalize(uSpotDir);
+
+        // direction from light -> fragment
+        vec3 lightToFrag = normalize(vWorldPos - uLightPos);
+
+        // compare with spotlight direction (pointing from light)
+        float theta = dot(lightToFrag, spotDirN);
+
+        float eps = max(uInnerCutoff - uOuterCutoff, 0.0001);
+        spot = clamp((theta - uOuterCutoff) / eps, 0.0, 1.0);
+    }
+
     vec3 ambient = uAmbientStrength * base * uLightColor;
 
     float diff = max(dot(N, L), 0.0);
+    vec3 diffuse = diff * base * uLightColor;
+
     float spec = 0.0;
-
-    if (diff > 0.0)
+    if (diff > 0.0) {
         spec = pow(max(dot(N, H), 0.0), uShininess);
-
-    // Toon mode
-    if (uToon == 1) {
-        diff = toonify(diff, 5.0);
-        spec = (spec > 0.5) ? 1.0 : 0.0;
     }
-
-    vec3 diffuse  = diff * base * uLightColor;
     vec3 specular = uSpecStrength * spec * uLightColor;
 
-    vec3 color = ambient + diffuse + specular;
+    vec3 color = ambient + spot * (diffuse + specular);
 
     // Fog
     if (uFog == 1) {

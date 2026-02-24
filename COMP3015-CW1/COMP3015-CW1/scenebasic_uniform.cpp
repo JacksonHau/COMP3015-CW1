@@ -282,8 +282,8 @@ void SceneBasic_Uniform::update(float t)
     if (glfwGetKey(window, GLFW_KEY_S) == GLFW_PRESS) camPos -= camFront * vel;
     if (glfwGetKey(window, GLFW_KEY_A) == GLFW_PRESS) camPos -= right * vel;
     if (glfwGetKey(window, GLFW_KEY_D) == GLFW_PRESS) camPos += right * vel;
-    if (glfwGetKey(window, GLFW_KEY_Q) == GLFW_PRESS) camPos -= camUp * vel;
-    if (glfwGetKey(window, GLFW_KEY_E) == GLFW_PRESS) camPos += camUp * vel;
+    if (glfwGetKey(window, GLFW_KEY_LEFT_SHIFT) == GLFW_PRESS) camPos -= camUp * vel;
+    if (glfwGetKey(window, GLFW_KEY_SPACE) == GLFW_PRESS) camPos += camUp * vel;
 
     view = glm::lookAt(camPos, camPos + camFront, camUp);
 
@@ -298,10 +298,10 @@ void SceneBasic_Uniform::update(float t)
         togglePressed = false;
     }
 
-    // Toggle TOON with T
+    // Toggle spotlight with T
     if (glfwGetKey(window, GLFW_KEY_T) == GLFW_PRESS) {
         if (!tPressed) {
-            toonMode = !toonMode;
+            spotlightMode = !spotlightMode;
             tPressed = true;
         }
     }
@@ -355,13 +355,29 @@ void SceneBasic_Uniform::render()
     // View/proj uniforms
     prog.setUniform("uView", view);
     prog.setUniform("uProj", projection);
-
-    // Toon + Fog toggles
-    prog.setUniform("uToon", toonMode ? 1 : 0);
     prog.setUniform("uFog", fogMode ? 1 : 0);
 
-    if (toonMode) {
-        prog.setUniform("uSpecStrength", 0.0f);
+    prog.setUniform("uUseSpotlight", spotlightMode ? 1 : 0);
+
+    // Make spotlight act like a flashlight from the camera
+    if (spotlightMode) {
+        prog.setUniform("uLightPos", camPos);
+        prog.setUniform("uSpotDir", camFront);
+
+        // inner/outer angles (degrees)
+        float inner = glm::cos(glm::radians(12.5f));
+        float outer = glm::cos(glm::radians(18.0f));
+        prog.setUniform("uInnerCutoff", inner);
+        prog.setUniform("uOuterCutoff", outer);
+    }
+    else {
+        // Normal mode: keep your orbiting point light
+        prog.setUniform("uLightPos", lightPos);
+
+        // Still set something valid
+        prog.setUniform("uSpotDir", glm::vec3(0.0f, -1.0f, 0.0f));
+        prog.setUniform("uInnerCutoff", glm::cos(glm::radians(12.5f)));
+        prog.setUniform("uOuterCutoff", glm::cos(glm::radians(18.0f)));
     }
 
     // Fog settings
@@ -384,6 +400,7 @@ void SceneBasic_Uniform::render()
     glm::mat4 groundModel(1.0f);
     prog.setUniform("uModel", groundModel);
     prog.setUniform("uBaseColor", glm::vec3(0.28f, 0.30f, 0.28f));
+    prog.setUniform("uCellShading", 0);
 
     glBindVertexArray(groundVao);
     glDrawArrays(GL_TRIANGLES, 0, 6);
