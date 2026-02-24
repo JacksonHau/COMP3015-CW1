@@ -34,6 +34,8 @@
   <ItemGroup>
     <None Include="shader\basic_uniform.frag" />
     <None Include="shader\basic_uniform.vert" />
+    <None Include="shader\ui_text.vert" />
+    <None Include="shader\ui_text.frag" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="scenebasic_uniform.h">
@@ -58,6 +60,9 @@
       <Filter>Header Files</Filter>
     </ClInclude>
     <ClInclude Include="stb_image.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="stb_easy_font.h">
       <Filter>Header Files</Filter>
     </ClInclude>
   </ItemGroup>

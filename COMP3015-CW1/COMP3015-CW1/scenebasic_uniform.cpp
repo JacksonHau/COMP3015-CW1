@@ -14,6 +14,9 @@
 #define STB_IMAGE_IMPLEMENTATION
 #include "stb_image.h"
 
+#define STB_EASY_FONT_IMPLEMENTATION
+#include "stb_easy_font.h"
+
 using glm::vec3;
 
 SceneBasic_Uniform::SceneBasic_Uniform() : angle(0.0f) {}
@@ -45,6 +48,138 @@ static GLuint loadTexture2D(const char* path)
     return tex;
 }
 
+void SceneBasic_Uniform::compileUI()
+{
+    try {
+        uiProg.compileShader("shader/ui_text.vert");
+        uiProg.compileShader("shader/ui_text.frag");
+        uiProg.link();
+    }
+    catch (GLSLProgramException& e) {
+        std::cerr << e.what() << std::endl;
+        exit(EXIT_FAILURE);
+    }
+}
+
+void SceneBasic_Uniform::initUI()
+{
+    glGenVertexArrays(1, &uiVao);
+    glGenBuffers(1, &uiVbo);
+
+    glBindVertexArray(uiVao);
+    glBindBuffer(GL_ARRAY_BUFFER, uiVbo);
+
+    glBufferData(GL_ARRAY_BUFFER, 0, nullptr, GL_DYNAMIC_DRAW);
+
+    glEnableVertexAttribArray(0);
+    glVertexAttribPointer(0, 2, GL_FLOAT, GL_FALSE, sizeof(float) * 2, (void*)0);
+
+    glBindVertexArray(0);
+}
+
+void SceneBasic_Uniform::pushRect(float x, float y, float w, float h)
+{
+    float x0 = x, y0 = y;
+    float x1 = x + w, y1 = y + h;
+
+    uiRectVerts.insert(uiRectVerts.end(), { x0,y0,  x1,y0,  x1,y1 });
+    uiRectVerts.insert(uiRectVerts.end(), { x0,y0,  x1,y1,  x0,y1 });
+}
+
+void SceneBasic_Uniform::pushText(float x, float y, const std::string& text)
+{
+    char tmp[20000];
+    int quads = stb_easy_font_print(x, y, (char*)text.c_str(), nullptr, tmp, sizeof(tmp));
+
+    float* v = (float*)tmp;
+    for (int q = 0; q < quads; q++) {
+        float* v0 = v + (q * 4 + 0) * 4;
+        float* v1 = v + (q * 4 + 1) * 4;
+        float* v2 = v + (q * 4 + 2) * 4;
+        float* v3 = v + (q * 4 + 3) * 4;
+
+        uiTextVerts.insert(uiTextVerts.end(), { v0[0], v0[1],  v1[0], v1[1],  v2[0], v2[1] });
+        uiTextVerts.insert(uiTextVerts.end(), { v0[0], v0[1],  v2[0], v2[1],  v3[0], v3[1] });
+    }
+}
+
+void SceneBasic_Uniform::drawOverlay()
+{
+    uiRectVerts.clear();
+    uiTextVerts.clear();
+
+    // UI text lines
+    std::string l1 = "Controls:";
+    std::string l2 = "Move - WASD";
+    std::string l3 = "Look - Mouse";
+    std::string l4 = "Up - Space";
+    std::string l5 = "Down - Shift";
+    std::string l6 = "Day/Night - L";
+    std::string l7 = "Fog - F";
+    std::string l8 = "Spotlight - Left Click";
+
+    const int lineH = 18;
+    const float pad = 10.0f;
+
+	// Calculate panel size based on text width
+    int w1 = stb_easy_font_width((char*)l1.c_str());
+    int w2 = stb_easy_font_width((char*)l2.c_str());
+    int w3 = stb_easy_font_width((char*)l3.c_str());
+    int w4 = stb_easy_font_width((char*)l4.c_str());
+    int w5 = stb_easy_font_width((char*)l5.c_str());
+    int w6 = stb_easy_font_width((char*)l6.c_str());
+    int w7 = stb_easy_font_width((char*)l7.c_str());
+    int w8 = stb_easy_font_width((char*)l8.c_str());
+    int maxW = std::max(std::max(std::max(std::max(w1, w2), std::max(w3, w4)), std::max(w5, w6)), std::max(w7, w8));
+
+    float panelW = float(maxW) + pad * 2.0f;
+    float panelH = float(lineH * 8) + pad * 2.0f;
+
+    float x = float(width) - pad - panelW;
+    float y = pad;
+
+    // background panel
+    pushRect(x, y, panelW, panelH);
+
+    // text
+    float tx = x + pad;
+    float ty = y + pad;
+    pushText(tx, ty + 0 * lineH, l1);
+    pushText(tx, ty + 1 * lineH, l2);
+    pushText(tx, ty + 2 * lineH, l3);
+    pushText(tx, ty + 3 * lineH, l4);
+    pushText(tx, ty + 4 * lineH, l5);
+    pushText(tx, ty + 5 * lineH, l6);
+    pushText(tx, ty + 6 * lineH, l7);
+    pushText(tx, ty + 7 * lineH, l8);
+
+    // Render overlay
+    glDisable(GL_DEPTH_TEST);
+    glEnable(GL_BLEND);
+    glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
+
+    uiProg.use();
+    uiProg.setUniform("uScreen", glm::vec2((float)width, (float)height));
+
+    glBindVertexArray(uiVao);
+    glBindBuffer(GL_ARRAY_BUFFER, uiVbo);
+
+    // draw panel
+    uiProg.setUniform("uColor", glm::vec4(0.0f, 0.0f, 0.0f, 0.45f));
+    glBufferData(GL_ARRAY_BUFFER, uiRectVerts.size() * sizeof(float), uiRectVerts.data(), GL_DYNAMIC_DRAW);
+    glDrawArrays(GL_TRIANGLES, 0, (GLsizei)(uiRectVerts.size() / 2));
+
+    // draw text
+    uiProg.setUniform("uColor", glm::vec4(1.0f, 1.0f, 1.0f, 1.0f));
+    glBufferData(GL_ARRAY_BUFFER, uiTextVerts.size() * sizeof(float), uiTextVerts.data(), GL_DYNAMIC_DRAW);
+    glDrawArrays(GL_TRIANGLES, 0, (GLsizei)(uiTextVerts.size() / 2));
+
+    glBindVertexArray(0);
+
+    glDisable(GL_BLEND);
+    glEnable(GL_DEPTH_TEST);
+}
+
 void SceneBasic_Uniform::initScene()
 {
     compile();
@@ -62,6 +197,9 @@ void SceneBasic_Uniform::initScene()
 
     buildCube();
     buildGround();
+
+    compileUI();
+    initUI();
 
     floorTex = loadTexture2D("assets/wood.png");
     cubeTex = loadTexture2D("assets/brick.jpg");
@@ -299,13 +437,13 @@ void SceneBasic_Uniform::update(float t)
     }
 
     // Toggle spotlight with T
-    if (glfwGetKey(window, GLFW_KEY_T) == GLFW_PRESS) {
+    if (glfwGetMouseButton(window, GLFW_MOUSE_BUTTON_1) == GLFW_PRESS) {
         if (!tPressed) {
             spotlightMode = !spotlightMode;
             tPressed = true;
         }
     }
-    if (glfwGetKey(window, GLFW_KEY_T) == GLFW_RELEASE) {
+    if (glfwGetMouseButton(window, GLFW_MOUSE_BUTTON_1) == GLFW_RELEASE) {
         tPressed = false;
     }
 
@@ -412,7 +550,7 @@ void SceneBasic_Uniform::render()
 
     // Draw cube 
     glm::mat4 cubeModel(1.0f);
-    cubeModel = glm::translate(cubeModel, glm::vec3(3.0f, 0.0f, 0.0f));
+    cubeModel = glm::translate(cubeModel, glm::vec3(0.0f, 0.0f, 0.0f));
     prog.setUniform("uModel", cubeModel);
     prog.setUniform("uBaseColor", glm::vec3(0.80f, 0.80f, 0.86f));
 
@@ -420,6 +558,8 @@ void SceneBasic_Uniform::render()
     glDrawArrays(GL_TRIANGLES, 0, 36);
 
     glBindVertexArray(0);
+
+	drawOverlay();
 }
 
 void SceneBasic_Uniform::resize(int w, int h)

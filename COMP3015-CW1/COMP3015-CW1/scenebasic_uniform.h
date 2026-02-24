@@ -5,10 +5,26 @@
 
 #include <glm/glm.hpp>
 
+#include <vector>
+#include <string>
+
 class SceneBasic_Uniform : public Scene
 {
 private:
     GLSLProgram prog;
+
+    GLSLProgram uiProg;
+    GLuint uiVao = 0;
+    GLuint uiVbo = 0;
+
+    std::vector<float> uiRectVerts;
+    std::vector<float> uiTextVerts;
+
+    void compileUI();
+    void initUI();
+    void pushRect(float x, float y, float w, float h);
+    void pushText(float x, float y, const std::string& text);
+    void drawOverlay();
 
     GLuint cubeVao = 0;
     GLuint groundVao = 0;
@@ -36,7 +52,7 @@ private:
 
     float lastTime = 0.0f;
 
-    bool isDarkMode = true;
+    bool isDarkMode = false;
     bool togglePressed = false;
 
     bool spotlightMode = false;
