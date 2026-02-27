@@ -67,6 +67,15 @@ private:
 
     glm::vec3 lightPos = glm::vec3(0.0f, -100.0f, 0.0f);
 
+    struct GuardPart {
+        GLuint vao = 0;
+        GLuint vbo = 0;
+        int count = 0;
+        glm::vec3 kd = glm::vec3(1.0f);
+    };
+
+    std::vector<GuardPart> guardParts;
+
 public:
     SceneBasic_Uniform();
 
@@ -74,4 +83,8 @@ public:
     void update(float t) override;
     void render() override;
     void resize(int w, int h) override;
+
+    GLuint guardVao = 0;
+    GLuint guardVbo = 0;
+    int guardVertexCount = 0;
 };

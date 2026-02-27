@@ -1,8 +1,13 @@
-#include "scenebasic_uniform.h"
+﻿#include "scenebasic_uniform.h"
 
 #include <cstdio>
 #include <cstdlib>
 #include <iostream>
+#include <fstream>
+#include <sstream>
+#include <vector>
+
+#include <unordered_map>
 
 #include "helper/glutils.h"
 
@@ -180,6 +185,116 @@ void SceneBasic_Uniform::drawOverlay()
     glEnable(GL_DEPTH_TEST);
 }
 
+struct GuardVert {
+    glm::vec3 pos;
+    glm::vec3 normal;
+    glm::vec2 uv;
+};
+
+static int FixIndex(int idx, int size) {
+    if (idx > 0) return idx - 1;
+    if (idx < 0) return size + idx;
+    return -1;
+}
+
+static bool ParseVVTVN(const std::string& s, int& vi, int& ti, int& ni) {
+    vi = ti = ni = 0;
+
+    size_t p1 = s.find('/');
+    if (p1 == std::string::npos) { 
+        vi = std::stoi(s);
+        return true;
+    }
+    size_t p2 = s.find('/', p1 + 1);
+    if (p2 == std::string::npos) return false;
+
+    vi = std::stoi(s.substr(0, p1));
+    std::string t = s.substr(p1 + 1, p2 - (p1 + 1));
+    std::string n = s.substr(p2 + 1);
+
+    if (!t.empty()) ti = std::stoi(t);
+    if (!n.empty()) ni = std::stoi(n);
+    return true;
+}
+
+static bool LoadGuardOBJ_ByMaterial(
+    const std::string& path,
+    std::unordered_map<std::string, std::vector<GuardVert>>& outByMtl
+) {
+    std::ifstream file(path);
+    if (!file.is_open()) {
+        std::cerr << "Failed to open OBJ: " << path << "\n";
+        return false;
+    }
+
+    std::vector<glm::vec3> positions;
+    std::vector<glm::vec2> texcoords;
+    std::vector<glm::vec3> normals;
+
+    std::string currentMtl = "default";
+
+    std::string line;
+    while (std::getline(file, line)) {
+        if (line.empty()) continue;
+
+        std::istringstream ss(line);
+        std::string type;
+        ss >> type;
+
+        if (type == "v") {
+            glm::vec3 v{};
+            ss >> v.x >> v.y >> v.z;
+            positions.push_back(v);
+        }
+        else if (type == "vt") {
+            glm::vec2 t{};
+            ss >> t.x >> t.y;
+            t.y = 1.0f - t.y; 
+            texcoords.push_back(t);
+        }
+        else if (type == "vn") {
+            glm::vec3 n{};
+            ss >> n.x >> n.y >> n.z;
+            normals.push_back(n);
+        }
+        else if (type == "usemtl") {
+            ss >> currentMtl;
+            if (currentMtl.empty()) currentMtl = "default";
+        }
+        else if (type == "f") {
+            std::vector<std::string> face;
+            std::string tok;
+            while (ss >> tok) face.push_back(tok);
+            if (face.size() < 3) continue;
+
+            auto emit = [&](const std::string& vtx) {
+                int vi, ti, ni;
+                if (!ParseVVTVN(vtx, vi, ti, ni)) return;
+
+                int p = FixIndex(vi, (int)positions.size());
+                int t = FixIndex(ti, (int)texcoords.size());
+                int n = FixIndex(ni, (int)normals.size());
+
+                if (p < 0 || p >= (int)positions.size()) return;
+
+                GuardVert gv{};
+                gv.pos = positions[p];
+
+                gv.uv = (t >= 0 && t < (int)texcoords.size()) ? texcoords[t] : glm::vec2(0.0f);
+                gv.normal = (n >= 0 && n < (int)normals.size()) ? normals[n] : glm::vec3(0, 1, 0);
+
+                outByMtl[currentMtl].push_back(gv);
+                };
+
+            // triangulate 
+            emit(face[0]); emit(face[1]); emit(face[2]);
+            if (face.size() == 4) { emit(face[0]); emit(face[2]); emit(face[3]); }
+        }
+    }
+
+    return true;
+}
+
 void SceneBasic_Uniform::initScene()
 {
     compile();
@@ -206,6 +321,61 @@ void SceneBasic_Uniform::initScene()
 
     // initial projection
     projection = glm::perspective(glm::radians(60.0f), float(width) / float(height), 0.1f, 200.0f);
+
+    // GUARD: split OBJ by material
+    std::unordered_map<std::string, glm::vec3> kd = {
+        {"Botas",   glm::vec3(0.05f, 0.05f, 0.05f)},
+        {"Chaleco", glm::vec3(0.05f, 0.05f, 0.05f)},
+        {"Camisa",  glm::vec3(0.175139f, 0.383581f, 0.984887f)},
+        {"Piel",    glm::vec3(0.940392f, 0.457111f, 0.267475f)},
+        {"Vaquero", glm::vec3(0.026713f, 0.050565f, 0.119276f)}
+    };
+
+    std::unordered_map<std::string, std::vector<GuardVert>> byMtl;
+
+    guardParts.clear();
+
+    if (!LoadGuardOBJ_ByMaterial("assets/Guard.obj", byMtl)) {
+        std::cerr << "Failed to load assets/Guard.obj\n";
+        exit(1);
+    }
+
+    for (auto& kv : byMtl) {
+        const std::string& mtlName = kv.first;
+        auto& verts = kv.second;
+        if (verts.empty()) continue;
+
+        GuardPart part;
+        part.count = (int)verts.size();
+
+        auto it = kd.find(mtlName);
+        part.kd = (it != kd.end()) ? it->second : glm::vec3(1.0f);
+
+        glGenVertexArrays(1, &part.vao);
+        glBindVertexArray(part.vao);
+
+        glGenBuffers(1, &part.vbo);
+        glBindBuffer(GL_ARRAY_BUFFER, part.vbo);
+        glBufferData(GL_ARRAY_BUFFER, verts.size() * sizeof(GuardVert), verts.data(), GL_STATIC_DRAW);
+
+        // layout 0: position
+        glEnableVertexAttribArray(0);
+        glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, sizeof(GuardVert), (void*)offsetof(GuardVert, pos));
+
+        // layout 1: normal
+        glEnableVertexAttribArray(1);
+        glVertexAttribPointer(1, 3, GL_FLOAT, GL_FALSE, sizeof(GuardVert), (void*)offsetof(GuardVert, normal));
+
+        // layout 2: uv 
+        glEnableVertexAttribArray(2);
+        glVertexAttribPointer(2, 2, GL_FLOAT, GL_FALSE, sizeof(GuardVert), (void*)offsetof(GuardVert, uv));
+
+        glBindVertexArray(0);
+
+        guardParts.push_back(part);
+    }
+
+    std::cout << "Guard parts loaded: " << guardParts.size() << "\n";
 }
 
 void SceneBasic_Uniform::compile()
@@ -538,7 +708,6 @@ void SceneBasic_Uniform::render()
     glm::mat4 groundModel(1.0f);
     prog.setUniform("uModel", groundModel);
     prog.setUniform("uBaseColor", glm::vec3(0.28f, 0.30f, 0.28f));
-    prog.setUniform("uCellShading", 0);
 
     glBindVertexArray(groundVao);
     glDrawArrays(GL_TRIANGLES, 0, 6);
@@ -550,16 +719,35 @@ void SceneBasic_Uniform::render()
 
     // Draw cube 
     glm::mat4 cubeModel(1.0f);
-    cubeModel = glm::translate(cubeModel, glm::vec3(0.0f, 0.0f, 0.0f));
+    cubeModel = glm::translate(cubeModel, glm::vec3(3.0f, 0.0f, 0.0f));
     prog.setUniform("uModel", cubeModel);
     prog.setUniform("uBaseColor", glm::vec3(0.80f, 0.80f, 0.86f));
 
     glBindVertexArray(cubeVao);
     glDrawArrays(GL_TRIANGLES, 0, 36);
-
     glBindVertexArray(0);
 
-	drawOverlay();
+    // Draw Guard first using the 3D shader
+    prog.use(); 
+
+    prog.setUniform("uUseTexture", 0);
+
+    glm::mat4 guardModel(1.0f);
+    guardModel = glm::translate(guardModel, glm::vec3(0.0f, -0.5f, 0.0f));
+    guardModel = glm::scale(guardModel, glm::vec3(1.5f));
+    prog.setUniform("uModel", guardModel);
+
+    for (auto& part : guardParts) {
+        prog.setUniform("uBaseColor", part.kd);
+        glBindVertexArray(part.vao);
+        glDrawArrays(GL_TRIANGLES, 0, part.count);
+    }
+
+    glBindVertexArray(0);
+    glDrawArrays(GL_TRIANGLES, 0, guardVertexCount);
+    glBindVertexArray(0);
+
+    drawOverlay();
 }
 
 void SceneBasic_Uniform::resize(int w, int h)
