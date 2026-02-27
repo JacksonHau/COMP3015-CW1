@@ -733,7 +733,7 @@ void SceneBasic_Uniform::render()
     prog.setUniform("uUseTexture", 0);
 
     glm::mat4 guardModel(1.0f);
-    guardModel = glm::translate(guardModel, glm::vec3(0.0f, -0.5f, 0.0f));
+    guardModel = glm::translate(guardModel, glm::vec3(0.0f, 0.0f, 0.0f));
     guardModel = glm::scale(guardModel, glm::vec3(1.5f));
     prog.setUniform("uModel", guardModel);
 
